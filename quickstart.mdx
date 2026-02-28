@@ -137,21 +137,23 @@ First, create a user account for a couple:
 curl -X POST http://localhost:8080/api/users \
   -H "Content-Type: application/json" \
   -d '{
-    "firstName": "John",
     "lastName": "Smith",
-    "email": "john.smith@example.com",
+    "firstNameCoupleOne": "John",
+    "firstNameCoupleTwo": "Jane",
+    "email": "john.jane@example.com",
     "password": "securepassword123"
   }'
 ```
 
 ### Create an event
 
-Create a wedding event:
+Create a wedding event (using the user ID from the previous step):
 
 ```bash
 curl -X POST http://localhost:8080/api/events \
   -H "Content-Type: application/json" \
   -d '{
+    "userId": 1,
     "eventName": "John & Jane Wedding",
     "location": "Grand Hotel",
     "date": "2024-06-15T14:00:00",
@@ -159,7 +161,9 @@ curl -X POST http://localhost:8080/api/events \
   }'
 ```
 
-The response will include an event ID that you can use for uploading images.
+<Note>
+  Replace `userId: 1` with the actual user ID returned from the user creation step.
+</Note>
 
 ### Upload an image
 
@@ -176,7 +180,7 @@ curl -X POST http://localhost:8080/api/image \
 Retrieve all images for a specific event:
 
 ```bash
-curl http://localhost:8080/api/events/1/images
+curl http://localhost:8080/api/image/1
 ```
 
 ## What's next?
