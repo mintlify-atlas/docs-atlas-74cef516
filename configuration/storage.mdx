@@ -1,0 +1,394 @@
+---
+title: S3 Storage Configuration
+description: Configure S3-compatible storage with AiStore for image uploads and management in Brautcloud Backend
+---
+
+## Overview
+
+Brautcloud Backend uses S3-compatible storage to store wedding photos uploaded by guests. The application uses [AiStore](https://github.com/NVIDIA/aistore) as a local S3-compatible storage server, providing a development-friendly alternative to AWS S3.
+
+<Info>
+  **AiStore**: A lightweight, high-performance S3-compatible storage system that runs locally. Perfect for development and can be replaced with AWS S3 or other S3-compatible services in production.
+</Info>
+
+## AiStore Setup
+
+### Running AiStore with Docker
+
+<Warning>
+  The Docker Compose Spring setup is currently disabled. You must run `docker compose up` manually and ensure an AiStore container is running separately.
+</Warning>
+
+Start AiStore using Docker:
+
+```bash
+docker run -d \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  --name aistore \
+  aistore/aisnode:latest
+```
+
+<Steps>
+  <Step title="Start AiStore Container">
+    Launch the AiStore container on port 9000:
+    ```bash
+    docker run -d -p 9000:9000 --name aistore aistore/aisnode:latest
+    ```
+  </Step>
+  
+  <Step title="Verify AiStore is Running">
+    Check the container status:
+    ```bash
+    docker ps | grep aistore
+    ```
+  </Step>
+  
+  <Step title="Create Bucket">
+    Create the `brautcloud` bucket for storing images:
+    ```bash
+    aws --endpoint-url=http://localhost:9000 s3 mb s3://brautcloud
+    ```
+  </Step>
+</Steps>
+
+### Alternative: MinIO
+
+You can also use MinIO as an S3-compatible storage alternative:
+
+```bash
+docker run -d \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  -e "MINIO_ROOT_USER=admin" \
+  -e "MINIO_ROOT_PASSWORD=password" \
+  --name minio \
+  minio/minio server /data --console-address ":9001"
+```
+
+## S3Config Configuration
+
+The application uses a custom `S3Config` class to configure the AWS SDK S3 client for local storage:
+
+```java src/main/java/com/domenicwalther/brautcloud/config/S3Config.java
+@Configuration
+public class S3Config {
+    
+    @Value("${aws.accessKeyId}")
+    private String accessKeyId;
+    
+    @Value("${aws.secretAccessKey}")
+    private String secretAccessKey;
+    
+    @Value("${aws.s3.region}")
+    private String region;
+    
+    @Value("${aws.s3.endpoint}")
+    private String s3Endpoint;
+    
+    @Bean
+    public S3Client s3Client() {
+        return S3Client.builder()
+            .endpointOverride(URI.create(s3Endpoint))
+            .region(Region.of(region))
+            .credentialsProvider(
+                StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(accessKeyId, secretAccessKey)
+                )
+            )
+            .forcePathStyle(true)
+            .build();
+    }
+}
+```
+
+### Key Configuration Properties
+
+<ParamField path="aws.accessKeyId" type="string" required>
+  Access key ID for S3 authentication. Set via `AWS_ACCESS_KEY_ID` environment variable.
+  
+  **Example**: `V3fhZDVSddQKq4fUnpJx`
+</ParamField>
+
+<ParamField path="aws.secretAccessKey" type="string" required>
+  Secret access key for S3 authentication. Set via `AWS_SECRET_ACCESS_KEY` environment variable.
+  
+  **Example**: `vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS`
+</ParamField>
+
+<ParamField path="aws.s3.endpoint" type="string" required>
+  S3 endpoint URL. For local development with AiStore, use `http://[::1]:9000` (IPv6 localhost).
+  
+  **Default**: `http://[::1]:9000`
+  
+  **Production**: Use AWS S3 endpoint or your S3-compatible service URL
+</ParamField>
+
+<ParamField path="aws.s3.region" type="string" required>
+  AWS region for S3 operations.
+  
+  **Default**: `us-east-1`
+</ParamField>
+
+<ParamField path="aws.s3.bucket" type="string" required>
+  S3 bucket name for storing images.
+  
+  **Default**: `brautcloud`
+</ParamField>
+
+<ParamField path="forcePathStyle" type="boolean" default="true">
+  Forces path-style URLs (required for local S3-compatible storage).
+  
+  **Path-style**: `http://localhost:9000/brautcloud/image.jpg`
+  
+  **Virtual-hosted-style**: `http://brautcloud.s3.amazonaws.com/image.jpg`
+</ParamField>
+
+## Bucket Configuration
+
+The application uses a single bucket named `brautcloud` to store all wedding images.
+
+### Bucket Structure
+
+Images are stored with keys that identify the event:
+
+```
+brautcloud/
+├── event-1/
+│   ├── image-uuid-1.jpg
+│   ├── image-uuid-2.jpg
+│   └── image-uuid-3.jpg
+├── event-2/
+│   ├── image-uuid-4.jpg
+│   └── image-uuid-5.jpg
+└── ...
+```
+
+<Info>
+  **Image Keys**: The `imageKey` field in the database stores the full S3 object key (e.g., `event-1/image-uuid-1.jpg`) for retrieving images.
+</Info>
+
+## S3Service Implementation
+
+The `S3Service` class provides methods for uploading and deleting images:
+
+```java src/main/java/com/domenicwalther/brautcloud/service/S3Service.java
+@Service
+public class S3Service {
+    
+    @Autowired
+    private S3Client s3Client;
+    
+    @Value("${aws.s3.bucket}")
+    private String bucketName;
+    
+    public void uploadFile(String key, File file) {
+        PutObjectRequest request = PutObjectRequest.builder()
+            .bucket(bucketName)
+            .key(key)
+            .build();
+        
+        s3Client.putObject(request, file.toPath());
+    }
+    
+    public void deleteFile(String key) {
+        DeleteObjectRequest request = DeleteObjectRequest.builder()
+            .bucket(bucketName)
+            .key(key)
+            .build();
+        
+        s3Client.deleteObject(request);
+    }
+}
+```
+
+### Upload Pattern
+
+<Steps>
+  <Step title="Receive File Upload">
+    Accept multipart file upload from the client (max 10MB)
+  </Step>
+  
+  <Step title="Generate Unique Key">
+    Create a unique S3 key for the image (e.g., `event-{eventId}/image-{uuid}.jpg`)
+  </Step>
+  
+  <Step title="Upload to S3">
+    Use `S3Service.uploadFile()` to store the file in the bucket
+  </Step>
+  
+  <Step title="Save Metadata">
+    Create an `Image` record in the database with the S3 key
+  </Step>
+</Steps>
+
+### Download Pattern
+
+<Steps>
+  <Step title="Retrieve Image Metadata">
+    Query the database for the image record and extract the `imageKey`
+  </Step>
+  
+  <Step title="Generate Presigned URL">
+    Create a temporary presigned URL for secure download (recommended for production)
+  </Step>
+  
+  <Step title="Return to Client">
+    Send the URL or stream the image data to the client
+  </Step>
+</Steps>
+
+### Delete Pattern
+
+<Steps>
+  <Step title="Verify Permissions">
+    Ensure the user has permission to delete the image
+  </Step>
+  
+  <Step title="Delete from S3">
+    Use `S3Service.deleteFile()` to remove the file from storage
+  </Step>
+  
+  <Step title="Delete Metadata">
+    Remove the `Image` record from the database
+  </Step>
+</Steps>
+
+## File Upload Configuration
+
+The application supports image uploads up to 10MB:
+
+```properties
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
+```
+
+<Warning>
+  **Upload Limits**: Ensure your S3 storage has sufficient capacity for wedding events. A typical wedding with 100 guests uploading 10 photos each (5MB average) requires ~5GB of storage.
+</Warning>
+
+## Production Deployment
+
+### Using AWS S3
+
+To deploy with AWS S3 in production:
+
+<Steps>
+  <Step title="Create S3 Bucket">
+    Create a bucket in your AWS account:
+    ```bash
+    aws s3 mb s3://brautcloud-production
+    ```
+  </Step>
+  
+  <Step title="Configure IAM Credentials">
+    Create an IAM user with S3 permissions and generate access keys
+  </Step>
+  
+  <Step title="Update Environment Variables">
+    Set production environment variables:
+    - `AWS_ACCESS_KEY_ID`: Your IAM access key
+    - `AWS_SECRET_ACCESS_KEY`: Your IAM secret key
+    - `AWS_ENDPOINT`: Remove this or set to AWS S3 endpoint
+    - Update `aws.s3.bucket` in `application.properties`
+  </Step>
+  
+  <Step title="Configure CORS">
+    If serving images to web clients, configure CORS on the S3 bucket
+  </Step>
+</Steps>
+
+### Using Other S3-Compatible Services
+
+Brautcloud Backend works with any S3-compatible storage:
+
+<CardGroup cols={3}>
+  <Card title="DigitalOcean Spaces" icon="water">
+    Cost-effective S3-compatible object storage
+  </Card>
+  <Card title="Cloudflare R2" icon="cloud">
+    Zero egress fees with S3-compatible API
+  </Card>
+  <Card title="Backblaze B2" icon="box">
+    Low-cost S3-compatible cloud storage
+  </Card>
+</CardGroup>
+
+Simply update the `aws.s3.endpoint` to point to your provider's endpoint.
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use presigned URLs for downloads">
+    Generate temporary presigned URLs instead of making objects publicly accessible. This provides time-limited access and better security.
+    
+    ```java
+    PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(
+        GetObjectRequest.builder()
+            .bucket(bucketName)
+            .key(imageKey)
+            .build(),
+        Duration.ofMinutes(15)
+    );
+    ```
+  </Accordion>
+  
+  <Accordion title="Implement access control">
+    Verify that users have permission to access images for specific events before generating download URLs.
+  </Accordion>
+  
+  <Accordion title="Encrypt sensitive data">
+    Enable server-side encryption (SSE) for S3 buckets in production:
+    ```java
+    PutObjectRequest request = PutObjectRequest.builder()
+        .bucket(bucketName)
+        .key(key)
+        .serverSideEncryption(ServerSideEncryption.AES256)
+        .build();
+    ```
+  </Accordion>
+  
+  <Accordion title="Use IAM roles in production">
+    Instead of access keys, use IAM roles for EC2 instances or container services to access S3 securely.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection refused to AiStore">
+    - Verify AiStore is running: `docker ps | grep aistore`
+    - Check the endpoint URL matches your Docker configuration
+    - Try using `http://localhost:9000` instead of `http://[::1]:9000` if IPv6 is not available
+  </Accordion>
+  
+  <Accordion title="Access denied errors">
+    - Verify `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are correct
+    - Check that the IAM user has S3 permissions (for AWS S3)
+    - Ensure the bucket exists and is accessible
+  </Accordion>
+  
+  <Accordion title="Bucket does not exist">
+    Create the bucket manually:
+    ```bash
+    aws --endpoint-url=http://localhost:9000 s3 mb s3://brautcloud
+    ```
+  </Accordion>
+  
+  <Accordion title="File upload fails">
+    - Check file size is under 10MB limit
+    - Verify sufficient storage space
+    - Check application logs for detailed error messages
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/configuration/environment">
+    Configure all required environment variables
+  </Card>
+  <Card title="Database Setup" icon="database" href="/configuration/database">
+    Set up PostgreSQL database for image metadata
+  </Card>
+</CardGroup>

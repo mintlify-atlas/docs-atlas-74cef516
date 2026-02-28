@@ -1,0 +1,285 @@
+---
+title: 'API Overview'
+description: 'Complete guide to the Brautcloud Backend REST API'
+---
+
+## Introduction
+
+The Brautcloud Backend provides a RESTful API for managing wedding events, images, and user data. The API is built with Spring Boot and follows standard REST conventions with JSON request/response formats.
+
+<Warning>
+  **Authentication Currently Disabled**
+  
+  Spring Security is currently commented out in the project configuration. All endpoints are publicly accessible without authentication. This should be enabled before deploying to production.
+</Warning>
+
+## Base URL
+
+The API is accessible at:
+
+```
+http://localhost:8080/api
+```
+
+All endpoints are prefixed with `/api` followed by the resource path.
+
+## API Structure
+
+The API is organized into three main resource categories:
+
+<CardGroup cols={3}>
+  <Card title="Events" icon="calendar" href="/api/events">
+    Manage wedding events, including creation, retrieval, and deletion
+  </Card>
+  <Card title="Images" icon="image" href="/api/images">
+    Upload, retrieve, and delete event photos stored in S3
+  </Card>
+  <Card title="Users" icon="users" href="/api/users">
+    Manage user accounts and retrieve user information
+  </Card>
+</CardGroup>
+
+## Authentication
+
+<Note>
+  Currently, no authentication is required to access the API endpoints. The `spring-boot-starter-security` dependency is commented out in `pom.xml`.
+</Note>
+
+Future implementation will include JWT-based authentication. For now, all endpoints are open and accessible without tokens or credentials.
+
+## Common Response Formats
+
+### Success Responses
+
+Most GET endpoints return JSON arrays or objects:
+
+```json
+{
+  "id": 1,
+  "eventName": "Sarah & John's Wedding",
+  "location": "Grand Hotel",
+  "date": "2026-06-15T14:00:00",
+  "userId": 1,
+  "coupleName": "Sarah & John"
+}
+```
+
+### Error Responses
+
+The API uses standard HTTP status codes:
+
+<ResponseField name="200" type="OK">
+  Request succeeded
+</ResponseField>
+
+<ResponseField name="400" type="Bad Request">
+  Invalid request parameters or missing required fields
+</ResponseField>
+
+<ResponseField name="404" type="Not Found">
+  Requested resource does not exist
+</ResponseField>
+
+<ResponseField name="500" type="Internal Server Error">
+  Server-side error occurred
+</ResponseField>
+
+## Error Handling
+
+Errors are returned with appropriate HTTP status codes. Spring Boot's default error handling provides error details in the following format:
+
+```json
+{
+  "timestamp": "2026-02-28T10:30:00.000+00:00",
+  "status": 404,
+  "error": "Not Found",
+  "path": "/api/events/999"
+}
+```
+
+## File Upload Limits
+
+The API supports file uploads with the following constraints:
+
+<ParamField path="max-file-size" type="string">
+  Maximum file size: **10MB**
+</ParamField>
+
+<ParamField path="max-request-size" type="string">
+  Maximum request size: **10MB**
+</ParamField>
+
+These limits are configured in `application.properties` and can be adjusted as needed.
+
+## Available Endpoints
+
+### Events API
+
+Manage wedding events with CRUD operations.
+
+<CardGroup cols={2}>
+  <Card title="GET /api/events" icon="list">
+    Retrieve all events
+  </Card>
+  <Card title="POST /api/events" icon="plus">
+    Create a new event
+  </Card>
+  <Card title="DELETE /api/events/events/{eventID}" icon="trash">
+    Delete an event by ID
+  </Card>
+</CardGroup>
+
+**Event Object Structure:**
+
+<Accordion title="EventRequest">
+```json
+{
+  "userId": 1,
+  "eventName": "Sarah & John's Wedding",
+  "location": "Grand Hotel",
+  "date": "2026-06-15T14:00:00",
+  "password": "wedding2026",
+  "qrCode": "QR_CODE_DATA"
+}
+```
+</Accordion>
+
+<Accordion title="EventResponse">
+```json
+{
+  "id": 1,
+  "eventName": "Sarah & John's Wedding",
+  "location": "Grand Hotel",
+  "date": "2026-06-15T14:00:00",
+  "userId": 1,
+  "coupleName": "Sarah & John"
+}
+```
+</Accordion>
+
+### Images API
+
+Upload and manage event photos with S3 storage integration.
+
+<CardGroup cols={2}>
+  <Card title="POST /api/image" icon="upload">
+    Upload an image for an event
+  </Card>
+  <Card title="GET /api/image/{eventID}" icon="images">
+    Get all images for an event
+  </Card>
+  <Card title="DELETE /api/image/{imageID}" icon="trash">
+    Delete an image by ID
+  </Card>
+</CardGroup>
+
+**Image Object Structure:**
+
+<Accordion title="ImageRequest (Multipart)">
+```
+file: MultipartFile (image file)
+eventId: String (event ID)
+```
+</Accordion>
+
+<Accordion title="ImageResponse">
+```json
+{
+  "id": 1,
+  "imageKey": "events/123/image-uuid.jpg",
+  "isVisible": true,
+  "eventId": 1
+}
+```
+</Accordion>
+
+### Users API
+
+Manage user accounts and access user data.
+
+<CardGroup cols={2}>
+  <Card title="GET /api/users" icon="users">
+    Retrieve all users
+  </Card>
+  <Card title="POST /api/users" icon="user-plus">
+    Create a new user
+  </Card>
+</CardGroup>
+
+**User Object Structure:**
+
+<Accordion title="User (Request)">
+```json
+{
+  "lastName": "Smith",
+  "firstNameCoupleOne": "Sarah",
+  "firstNameCoupleTwo": "John",
+  "email": "sarah.john@example.com",
+  "password": "securePassword123"
+}
+```
+</Accordion>
+
+<Accordion title="UserResponse">
+```json
+{
+  "id": 1,
+  "lastName": "Smith",
+  "firstNameCoupleOne": "Sarah",
+  "firstNameCoupleTwo": "John",
+  "createdAt": "2026-01-15T10:30:00",
+  "email": "sarah.john@example.com",
+  "emailVerified": false,
+  "events": [
+    {
+      "id": 1,
+      "eventName": "Sarah & John's Wedding",
+      "location": "Grand Hotel",
+      "date": "2026-06-15T14:00:00",
+      "userId": 1,
+      "coupleName": "Sarah & John"
+    }
+  ]
+}
+```
+</Accordion>
+
+## Content Types
+
+### JSON Endpoints
+
+Most endpoints accept and return `application/json`:
+
+```bash
+Content-Type: application/json
+```
+
+### File Upload Endpoint
+
+The image upload endpoint uses `multipart/form-data`:
+
+```bash
+Content-Type: multipart/form-data
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Events Endpoints" icon="calendar" href="/api/events">
+    Detailed documentation for all event-related endpoints
+  </Card>
+  <Card title="Images Endpoints" icon="image" href="/api/images">
+    Learn how to upload and manage event photos
+  </Card>
+  <Card title="Users Endpoints" icon="users" href="/api/users">
+    User management and authentication endpoints
+  </Card>
+</CardGroup>
+
+## Code References
+
+Controller implementations can be found in:
+
+- Events: `EventController.java:11`
+- Images: `ImageController.java:18`
+- Users: `UserController.java:12`

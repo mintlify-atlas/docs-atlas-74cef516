@@ -1,0 +1,292 @@
+---
+title: 'Deployment Guide'
+description: 'Learn how to build and deploy the Brautcloud Backend application to production'
+---
+
+## Overview
+
+Brautcloud Backend is a Spring Boot 4.0.2 application built with Java 25 and Maven. This guide covers building the application, running it in production, and configuring environment variables.
+
+<Note>
+  The application uses Spring Boot Actuator for health monitoring and management endpoints.
+</Note>
+
+## Prerequisites
+
+Before deploying, ensure you have:
+
+- Java 25 or higher installed
+- Maven 3.6+ installed
+- PostgreSQL database running and accessible
+- AiStore (local S3) instance running (for file storage)
+- Access to environment variable management (Doppler recommended)
+
+## Building the Application
+
+### Maven Build
+
+The application uses the Spring Boot Maven plugin for building. Use the following command to create a production-ready JAR:
+
+```bash
+mvn clean package
+```
+
+This command will:
+- Compile the Java source code with Java 25
+- Process Lombok annotations
+- Validate code formatting with Spring Java Format plugin
+- Run all tests (including Testcontainers)
+- Create an executable JAR in the `target/` directory
+
+<Note>
+  The build process includes the `spring-javaformat-maven-plugin` which validates code formatting during the `validate` phase. Ensure your code follows Spring's formatting conventions.
+</Note>
+
+### Skip Tests (Optional)
+
+To build without running tests:
+
+```bash
+mvn clean package -DskipTests
+```
+
+### Build Output
+
+The build produces an executable JAR file:
+
+```
+target/brautcloud-0.0.1-SNAPSHOT.jar
+```
+
+## Running the Application
+
+### Using Maven
+
+For development or testing:
+
+```bash
+mvn spring-boot:run
+```
+
+### Using the JAR File
+
+For production deployment:
+
+```bash
+java -jar target/brautcloud-0.0.1-SNAPSHOT.jar
+```
+
+<Warning>
+  Ensure all required environment variables are set before starting the application. Missing variables will cause startup failures.
+</Warning>
+
+## Environment Configuration
+
+### Production Environment Variables
+
+The application requires the following environment variables in production:
+
+<CodeGroup>
+
+```bash Environment Variables
+# Database Configuration
+SPRING_DATASOURCE_URL=jdbc:postgresql://your-db-host:5432/brautcloud
+SPRING_DATASOURCE_USERNAME=your_db_user
+SPRING_DATASOURCE_PASSWORD=your_db_password
+
+# AWS S3 Configuration (AiStore)
+AWS_ACCESSKEYID=your_access_key
+AWS_SECRETACCESSKEY=your_secret_key
+AWS_S3_ENDPOINT=http://your-aistore-host:9000
+AWS_S3_REGION=us-east-1
+AWS_S3_BUCKET=brautcloud
+
+# File Upload Limits (Optional)
+SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE=10MB
+SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE=10MB
+
+# Application Name (Optional)
+SPRING_APPLICATION_NAME=brautcloud
+```
+
+```bash Using Doppler
+# Run with Doppler for secure environment management
+doppler run -- java -jar target/brautcloud-0.0.1-SNAPSHOT.jar
+```
+
+</CodeGroup>
+
+### Configuration Precedence
+
+Spring Boot applies configuration in the following order (highest precedence first):
+
+1. Command-line arguments: `--spring.datasource.url=...`
+2. Environment variables: `SPRING_DATASOURCE_URL`
+3. `application.properties` file values
+
+<Note>
+  The project uses [Doppler](https://www.doppler.com/) for environment variable management. This provides secure, centralized configuration management across environments.
+</Note>
+
+## Health Check Endpoints
+
+The application includes Spring Boot Actuator for monitoring and management:
+
+### Default Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Health Check" icon="heart-pulse">
+    `GET /actuator/health`
+    
+    Returns application health status
+  </Card>
+  <Card title="Info" icon="circle-info">
+    `GET /actuator/info`
+    
+    Returns application information
+  </Card>
+</CardGroup>
+
+### Health Check Response
+
+```json Example Response
+{
+  "status": "UP"
+}
+```
+
+### Configuring Actuator Endpoints
+
+To expose additional endpoints in production, add to your environment variables:
+
+```bash
+MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,metrics
+```
+
+<Warning>
+  Be cautious when exposing actuator endpoints in production. Consider securing them with Spring Security or restricting access via network policies.
+</Warning>
+
+## Production Considerations
+
+### Database Initialization
+
+The application is configured with:
+
+```properties
+spring.sql.init.mode=always
+```
+
+<Warning>
+  In production, consider changing `spring.sql.init.mode` to `never` or using a proper database migration tool like Flyway or Liquibase to avoid unintended schema changes.
+</Warning>
+
+### File Upload Limits
+
+The default file upload limits are:
+- Max file size: 10MB
+- Max request size: 10MB
+
+Adjust these limits based on your requirements:
+
+```bash
+SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE=50MB
+SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE=50MB
+```
+
+### JVM Options
+
+For production deployments, consider adding JVM options:
+
+```bash
+java -Xms512m -Xmx2g \
+  -XX:+UseG1GC \
+  -jar target/brautcloud-0.0.1-SNAPSHOT.jar
+```
+
+### Systemd Service
+
+Create a systemd service for automatic startup:
+
+```ini /etc/systemd/system/brautcloud.service
+[Unit]
+Description=Brautcloud Backend
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=brautcloud
+WorkingDirectory=/opt/brautcloud
+EnvironmentFile=/opt/brautcloud/.env
+ExecStart=/usr/bin/java -jar /opt/brautcloud/brautcloud-0.0.1-SNAPSHOT.jar
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl enable brautcloud
+sudo systemctl start brautcloud
+sudo systemctl status brautcloud
+```
+
+## Deployment Checklist
+
+<Steps>
+  <Step title="Build the Application">
+    Run `mvn clean package` to create the production JAR
+  </Step>
+  
+  <Step title="Configure Environment">
+    Set all required environment variables (database, S3, etc.)
+  </Step>
+  
+  <Step title="Verify Dependencies">
+    Ensure PostgreSQL and AiStore are running and accessible
+  </Step>
+  
+  <Step title="Test Health Endpoint">
+    After starting, verify `/actuator/health` returns `UP` status
+  </Step>
+  
+  <Step title="Monitor Logs">
+    Check application logs for any errors or warnings
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Application Won't Start
+
+- Check that all environment variables are set correctly
+- Verify PostgreSQL is accessible from the application server
+- Ensure AiStore endpoint is reachable
+- Check logs for specific error messages
+
+### Database Connection Issues
+
+```bash
+# Test PostgreSQL connection
+psql -h your-db-host -U your_db_user -d brautcloud
+```
+
+### S3 Connection Issues
+
+- Verify the AiStore endpoint URL is correct
+- Check that the access key and secret key are valid
+- Ensure the bucket exists and is accessible
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Docker Setup" icon="docker" href="/guides/docker">
+    Learn how to set up PostgreSQL and AiStore with Docker Compose
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore the API endpoints
+  </Card>
+</CardGroup>

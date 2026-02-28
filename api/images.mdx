@@ -1,0 +1,281 @@
+---
+title: "Images API"
+description: "API endpoints for uploading, retrieving, and deleting event images in Brautcloud"
+---
+
+The Images API enables guests to upload photos to wedding events, retrieve images for specific events, and delete images. All images are stored in AWS S3.
+
+## Upload Image
+
+<ParamField path="POST" type="endpoint">
+  /api/image
+</ParamField>
+
+Uploads a new image to an event. This endpoint accepts multipart/form-data.
+
+<Note>
+  This endpoint requires `Content-Type: multipart/form-data` header. The request must include both the file and the event ID as separate parts.
+</Note>
+
+### Request Parameters
+
+<ParamField body="file" type="MultipartFile" required>
+  The image file to upload. Sent as a multipart form field named "file".
+</ParamField>
+
+<ParamField body="eventId" type="String" required>
+  The ID of the event to associate this image with. Sent as a multipart form field named "eventId". Will be parsed as Long.
+</ParamField>
+
+### Response
+
+Returns a `ResponseEntity<String>` with a success or error message.
+
+<ResponseField name="body" type="String">
+  Success message or error description
+</ResponseField>
+
+### Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.brautcloud.com/api/image \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@/path/to/image.jpg" \
+  -F "eventId=123"
+```
+
+```javascript JavaScript
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+formData.append('eventId', '123');
+
+const response = await fetch('https://api.brautcloud.com/api/image', {
+  method: 'POST',
+  body: formData
+});
+
+const message = await response.text();
+```
+
+```python Python
+import requests
+
+files = {'file': open('image.jpg', 'rb')}
+data = {'eventId': '123'}
+
+response = requests.post(
+    'https://api.brautcloud.com/api/image',
+    files=files,
+    data=data
+)
+
+print(response.text)
+```
+
+</CodeGroup>
+
+### Example Response
+
+```text
+Image uploaded successfully
+```
+
+---
+
+## Get Images by Event
+
+<ParamField path="GET" type="endpoint">
+  /api/image/{eventID}
+</ParamField>
+
+Retrieves all images associated with a specific event.
+
+### Path Parameters
+
+<ParamField path="eventID" type="Long" required>
+  The ID of the event to retrieve images for
+</ParamField>
+
+### Response
+
+Returns an array of image objects.
+
+<ResponseField name="id" type="Long">
+  Unique identifier for the image
+</ResponseField>
+
+<ResponseField name="imageKey" type="String">
+  The S3 key/path where the image is stored
+</ResponseField>
+
+<ResponseField name="isVisible" type="boolean">
+  Whether the image is visible in the gallery (moderation flag)
+</ResponseField>
+
+<ResponseField name="eventId" type="Long">
+  ID of the event this image belongs to
+</ResponseField>
+
+### Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET https://api.brautcloud.com/api/image/123 \
+  -H "Content-Type: application/json"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.brautcloud.com/api/image/123', {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+const images = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get('https://api.brautcloud.com/api/image/123')
+images = response.json()
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+[
+  {
+    "id": 1,
+    "imageKey": "events/123/img_20260715_143022.jpg",
+    "isVisible": true,
+    "eventId": 123
+  },
+  {
+    "id": 2,
+    "imageKey": "events/123/img_20260715_145530.jpg",
+    "isVisible": true,
+    "eventId": 123
+  },
+  {
+    "id": 3,
+    "imageKey": "events/123/img_20260715_151203.jpg",
+    "isVisible": false,
+    "eventId": 123
+  }
+]
+```
+
+---
+
+## Delete Image
+
+<ParamField path="DELETE" type="endpoint">
+  /api/image/{imageID}
+</ParamField>
+
+Deletes an image by its ID. This removes the image from both the database and S3 storage.
+
+### Path Parameters
+
+<ParamField path="imageID" type="Long" required>
+  The ID of the image to delete
+</ParamField>
+
+### Response
+
+Returns a `ResponseEntity<String>` with a success or error message.
+
+<ResponseField name="body" type="String">
+  Success message or error description
+</ResponseField>
+
+### Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE https://api.brautcloud.com/api/image/456 \
+  -H "Content-Type: application/json"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.brautcloud.com/api/image/456', {
+  method: 'DELETE',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+const message = await response.text();
+```
+
+```python Python
+import requests
+
+response = requests.delete('https://api.brautcloud.com/api/image/456')
+print(response.text)
+```
+
+</CodeGroup>
+
+### Example Response
+
+```text
+Image deleted successfully
+```
+
+---
+
+## Data Models
+
+### ImageRequest
+
+Used internally when processing multipart uploads. Not sent as JSON.
+
+- **eventId**: `Long` - The event ID
+- **file**: `MultipartFile` - The uploaded file
+
+### ImageResponse
+
+Returned when retrieving images.
+
+```json
+{
+  "id": 1,
+  "imageKey": "events/123/img_20260715_143022.jpg",
+  "isVisible": true,
+  "eventId": 123
+}
+```
+
+### Image Model (Database)
+
+The underlying database entity contains:
+
+- **id**: `Long` - Primary key
+- **imageKey**: `String` - S3 storage key
+- **isVisible**: `boolean` - Moderation flag
+- **eventId**: `Long` - Foreign key to events table
+- **createdAt**: `LocalDateTime` - Timestamp (auto-generated)
+
+---
+
+## Upload Guidelines
+
+<Warning>
+  Ensure uploaded files are valid image formats. The API stores files in S3 and references them by key.
+</Warning>
+
+### Supported Operations
+
+- Upload images in common formats (JPEG, PNG, etc.)
+- Retrieve all images for a specific event
+- Delete individual images by ID
+- Images have a visibility flag for moderation purposes

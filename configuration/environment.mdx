@@ -1,0 +1,162 @@
+---
+title: Environment Variables
+description: Configure Brautcloud Backend environment variables for database, storage, and application settings
+---
+
+## Overview
+
+Brautcloud Backend uses environment variables to configure database connections, S3 storage, and application settings. The project integrates with [Doppler](https://www.doppler.com/) for secure secrets management.
+
+<Info>
+  **Doppler Integration**: This project uses Doppler to manage environment variables securely. Make sure you have Doppler installed and are logged in before running the application.
+</Info>
+
+## Required Environment Variables
+
+### AWS S3 Configuration
+
+These variables configure the connection to AiStore, a local S3-compatible storage server.
+
+<ParamField path="AWS_ACCESS_KEY_ID" type="string" required>
+  Access key for authenticating with the local S3 server (AiStore).
+  
+  **Example**: `V3fhZDVSddQKq4fUnpJx`
+</ParamField>
+
+<ParamField path="AWS_SECRET_ACCESS_KEY" type="string" required>
+  Secret access key for authenticating with the local S3 server (AiStore).
+  
+  **Example**: `vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS`
+</ParamField>
+
+<ParamField path="AWS_ENDPOINT" type="string" required>
+  Endpoint URL for the local S3 server. This overrides the default AWS S3 endpoint.
+  
+  **Default**: `http://[::1]:9000`
+  
+  **Note**: Uses IPv6 localhost address with port 9000
+</ParamField>
+
+### PostgreSQL Database Configuration
+
+These variables configure the connection to the PostgreSQL database.
+
+<ParamField path="POSTGRES_URL" type="string" required>
+  Hostname or full JDBC URL of the PostgreSQL database.
+  
+  **Format**: `jdbc:postgresql://localhost/mydatabase`
+  
+  **Default**: `localhost` (when using Docker Compose)
+</ParamField>
+
+<ParamField path="POSTGRES_USER" type="string" required>
+  Username for PostgreSQL database authentication.
+  
+  **Default**: `myuser`
+</ParamField>
+
+<ParamField path="POSTGRES_PW" type="string" required>
+  Password for PostgreSQL database authentication.
+  
+  **Default**: `secret`
+</ParamField>
+
+## Application Properties
+
+The `application.properties` file contains additional configuration that references environment variables:
+
+```properties
+# Application Name
+spring.application.name=brautcloud
+
+# Database Configuration
+spring.sql.init.mode=always
+spring.datasource.url=${POSTGRES_URL}
+spring.datasource.username=${POSTGRES_USER}
+spring.datasource.password=${POSTGRES_PW}
+
+# File Upload Configuration
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
+
+# AWS S3 Configuration
+aws.accessKeyId=${AWS_ACCESS_KEY_ID}
+aws.secretAccessKey=${AWS_SECRET_ACCESS_KEY}
+aws.s3.endpoint=${AWS_ENDPOINT}
+aws.s3.region=us-east-1
+aws.s3.bucket=brautcloud
+```
+
+## Doppler Setup
+
+### Installation
+
+<Steps>
+  <Step title="Install Doppler CLI">
+    Follow the [official Doppler installation guide](https://docs.doppler.com/docs/install-cli) for your operating system.
+  </Step>
+  
+  <Step title="Login to Doppler">
+    Authenticate with your Doppler account:
+    ```bash
+    doppler login
+    ```
+  </Step>
+  
+  <Step title="Setup Project">
+    Navigate to your project directory and configure Doppler:
+    ```bash
+    cd brautcloud-backend
+    doppler setup
+    ```
+  </Step>
+  
+  <Step title="Add Environment Variables">
+    Add all required variables to your Doppler project/config using the Doppler dashboard or CLI:
+    ```bash
+    doppler secrets set AWS_ACCESS_KEY_ID="your-access-key"
+    doppler secrets set AWS_SECRET_ACCESS_KEY="your-secret-key"
+    doppler secrets set AWS_ENDPOINT="http://[::1]:9000"
+    doppler secrets set POSTGRES_URL="jdbc:postgresql://localhost/mydatabase"
+    doppler secrets set POSTGRES_USER="myuser"
+    doppler secrets set POSTGRES_PW="secret"
+    ```
+  </Step>
+</Steps>
+
+### Running with Doppler
+
+The project includes a `Spring_Run.run.xml` configuration that automatically starts Doppler with Spring Boot. Alternatively, you can run manually:
+
+```bash
+doppler run -- ./mvnw spring-boot:run
+```
+
+<Warning>
+  **Security Best Practice**: Never commit environment variables or credentials to version control. Always use Doppler or similar secrets management tools for production deployments.
+</Warning>
+
+## File Upload Limits
+
+The application is configured to accept image uploads with the following limits:
+
+- **Maximum File Size**: 10MB per file
+- **Maximum Request Size**: 10MB total per request
+
+These limits can be adjusted in `application.properties`:
+
+```properties
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Setup" icon="database" href="/configuration/database">
+    Configure PostgreSQL database schema and connections
+  </Card>
+  <Card title="Storage Setup" icon="hard-drive" href="/configuration/storage">
+    Set up S3-compatible storage with AiStore
+  </Card>
+</CardGroup>

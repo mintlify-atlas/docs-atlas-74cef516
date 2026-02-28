@@ -1,0 +1,293 @@
+---
+title: "Users API"
+description: "API endpoints for managing users (couples) in Brautcloud"
+---
+
+The Users API allows you to create and retrieve user accounts. In Brautcloud, users represent couples who are hosting wedding events.
+
+## List All Users
+
+<ParamField path="GET" type="endpoint">
+  /api/users
+</ParamField>
+
+Retrieves a list of all users in the system, including their associated events.
+
+### Response
+
+Returns an array of user objects with nested event data.
+
+<ResponseField name="id" type="Long">
+  Unique identifier for the user
+</ResponseField>
+
+<ResponseField name="lastName" type="String">
+  Last name (surname) of the couple
+</ResponseField>
+
+<ResponseField name="firstNameCoupleOne" type="String">
+  First name of the first person in the couple
+</ResponseField>
+
+<ResponseField name="firstNameCoupleTwo" type="String">
+  First name of the second person in the couple
+</ResponseField>
+
+<ResponseField name="createdAt" type="LocalDateTime">
+  Timestamp when the user account was created (auto-generated)
+</ResponseField>
+
+<ResponseField name="email" type="String">
+  Email address of the user
+</ResponseField>
+
+<ResponseField name="emailVerified" type="boolean">
+  Whether the email address has been verified
+</ResponseField>
+
+<ResponseField name="events" type="List<EventResponse>">
+  Array of events associated with this user. Each event contains:
+  - `id`: Event ID
+  - `eventName`: Name of the event
+  - `location`: Event location
+  - `date`: Event date and time
+  - `userId`: User ID (matches parent)
+  - `coupleName`: Combined name of the couple
+</ResponseField>
+
+### Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET https://api.brautcloud.com/api/users \
+  -H "Content-Type: application/json"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.brautcloud.com/api/users', {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+const users = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get('https://api.brautcloud.com/api/users')
+users = response.json()
+```
+
+</CodeGroup>
+
+### Example Response
+
+```json
+[
+  {
+    "id": 5,
+    "lastName": "Johnson",
+    "firstNameCoupleOne": "Emma",
+    "firstNameCoupleTwo": "Michael",
+    "createdAt": "2026-01-15T10:30:00",
+    "email": "emma.michael@example.com",
+    "emailVerified": true,
+    "events": [
+      {
+        "id": 1,
+        "eventName": "Summer Wedding 2026",
+        "location": "Garden Vista Hall",
+        "date": "2026-07-15T15:00:00",
+        "userId": 5,
+        "coupleName": "Emma & Michael"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "lastName": "Smith",
+    "firstNameCoupleOne": "Sarah",
+    "firstNameCoupleTwo": "David",
+    "createdAt": "2026-02-10T14:20:00",
+    "email": "sarah.david@example.com",
+    "emailVerified": false,
+    "events": []
+  }
+]
+```
+
+---
+
+## Create User
+
+<ParamField path="POST" type="endpoint">
+  /api/users
+</ParamField>
+
+Creates a new user account for a couple.
+
+### Request Body
+
+<ParamField body="lastName" type="String" required>
+  Last name (surname) of the couple
+</ParamField>
+
+<ParamField body="firstNameCoupleOne" type="String" required>
+  First name of the first person in the couple
+</ParamField>
+
+<ParamField body="firstNameCoupleTwo" type="String" required>
+  First name of the second person in the couple
+</ParamField>
+
+<ParamField body="email" type="String" required>
+  Email address for the user account
+</ParamField>
+
+<ParamField body="password" type="String" required>
+  Password for the user account (should be hashed on client side if possible)
+</ParamField>
+
+<ParamField body="emailVerified" type="boolean" optional>
+  Whether the email is verified. Defaults to false if not provided.
+</ParamField>
+
+<Note>
+  The `id`, `createdAt`, and `events` fields are auto-generated and should not be included in the request.
+</Note>
+
+### Response
+
+Returns 200 OK on successful creation. No response body.
+
+### Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.brautcloud.com/api/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "lastName": "Johnson",
+    "firstNameCoupleOne": "Emma",
+    "firstNameCoupleTwo": "Michael",
+    "email": "emma.michael@example.com",
+    "password": "securePassword123",
+    "emailVerified": false
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.brautcloud.com/api/users', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    lastName: 'Johnson',
+    firstNameCoupleOne: 'Emma',
+    firstNameCoupleTwo: 'Michael',
+    email: 'emma.michael@example.com',
+    password: 'securePassword123',
+    emailVerified: false
+  })
+});
+```
+
+```python Python
+import requests
+
+data = {
+    "lastName": "Johnson",
+    "firstNameCoupleOne": "Emma",
+    "firstNameCoupleTwo": "Michael",
+    "email": "emma.michael@example.com",
+    "password": "securePassword123",
+    "emailVerified": False
+}
+
+response = requests.post(
+    'https://api.brautcloud.com/api/users',
+    json=data
+)
+```
+
+</CodeGroup>
+
+---
+
+## Data Models
+
+### User (Request Body)
+
+When creating a user, send the complete User object:
+
+```json
+{
+  "lastName": "Johnson",
+  "firstNameCoupleOne": "Emma",
+  "firstNameCoupleTwo": "Michael",
+  "email": "emma.michael@example.com",
+  "password": "securePassword123",
+  "emailVerified": false
+}
+```
+
+### UserResponse
+
+Returned when retrieving users:
+
+```json
+{
+  "id": 5,
+  "lastName": "Johnson",
+  "firstNameCoupleOne": "Emma",
+  "firstNameCoupleTwo": "Michael",
+  "createdAt": "2026-01-15T10:30:00",
+  "email": "emma.michael@example.com",
+  "emailVerified": true,
+  "events": [
+    {
+      "id": 1,
+      "eventName": "Summer Wedding 2026",
+      "location": "Garden Vista Hall",
+      "date": "2026-07-15T15:00:00",
+      "userId": 5,
+      "coupleName": "Emma & Michael"
+    }
+  ]
+}
+```
+
+### User Model (Database)
+
+The underlying database entity contains:
+
+- **id**: `Long` - Primary key (auto-generated)
+- **lastName**: `String` - Couple's last name
+- **firstNameCoupleOne**: `String` - First person's first name
+- **firstNameCoupleTwo**: `String` - Second person's first name
+- **createdAt**: `LocalDateTime` - Creation timestamp (auto-generated)
+- **email**: `String` - User email
+- **emailVerified**: `boolean` - Email verification status
+- **password**: `String` - Hashed password (never returned in responses)
+- **events**: `List<Event>` - One-to-many relationship with events
+
+---
+
+## Security Notes
+
+<Warning>
+  The password field is sensitive. Ensure passwords are properly hashed before storage and never returned in API responses. The UserResponse DTO intentionally excludes the password field.
+</Warning>
+
+### Best Practices
+
+- Always use HTTPS for API calls containing user credentials
+- Implement proper password hashing on the server side
+- Validate email format before submission
+- Implement rate limiting for user creation endpoints
+- Consider adding CAPTCHA for public user registration

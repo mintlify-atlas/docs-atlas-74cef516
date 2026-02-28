@@ -1,80 +1,231 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get up and running with Brautcloud Backend in minutes
 ---
 
-## Get started in three steps
+Get your Brautcloud Backend development environment set up and make your first API call.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, ensure you have the following installed:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+- **Java 25** or later
+- **Maven 3.8+** for building the project
+- **Docker** for running PostgreSQL and AiStore
+- **Doppler CLI** for environment variable management
+- **Git** for cloning the repository
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  If you need detailed installation instructions for these prerequisites, see the [Installation Guide](/installation).
+</Note>
+
+## Quick setup
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the Brautcloud Backend repository from GitHub:
+
+    ```bash
+    git clone https://github.com/domenicwalther/brautcloud-backend.git
+    cd brautcloud-backend
+    ```
+  </Step>
+
+  <Step title="Start Docker services">
+    Start PostgreSQL using Docker Compose:
+
+    ```bash
+    docker compose up -d
+    ```
+
+    This will start a PostgreSQL database with the following default configuration:
+    - Database: `mydatabase`
+    - User: `myuser`
+    - Password: `secret`
+    - Port: `5432`
+
+    <Warning>
+      The Docker Compose Spring Boot integration is disabled in this project. You must start Docker services manually before running the application.
+    </Warning>
+  </Step>
+
+  <Step title="Set up AiStore (S3-compatible storage)">
+    Start a local AiStore/MinIO instance for S3-compatible object storage:
+
+    ```bash
+    docker run -d \
+      -p 9000:9000 \
+      -p 9001:9001 \
+      --name aistore \
+      -e "MINIO_ROOT_USER=minioadmin" \
+      -e "MINIO_ROOT_PASSWORD=minioadmin" \
+      minio/minio server /data --console-address ":9001"
+    ```
+
+    Create the required bucket:
+
+    ```bash
+    # Install MinIO client if you don't have it
+    # brew install minio/stable/mc  # macOS
+    # or download from https://min.io/docs/minio/linux/reference/minio-mc.html
+
+    mc alias set local http://localhost:9000 minioadmin minioadmin
+    mc mb local/brautcloud
+    ```
+  </Step>
+
+  <Step title="Configure environment variables">
+    Set up your environment variables using Doppler:
+
+    ```bash
+    # Install Doppler if you haven't already
+    # brew install dopplerhq/cli/doppler  # macOS
+    # or follow: https://docs.doppler.com/docs/install-cli
+
+    # Login to Doppler
+    doppler login
+
+    # Create a new project or use existing
+    doppler setup
+
+    # Add required environment variables
+    doppler secrets set AWS_ACCESS_KEY_ID="minioadmin"
+    doppler secrets set AWS_SECRET_ACCESS_KEY="minioadmin"
+    doppler secrets set AWS_ENDPOINT="http://localhost:9000"
+    doppler secrets set POSTGRES_URL="jdbc:postgresql://localhost:5432/mydatabase"
+    doppler secrets set POSTGRES_USER="myuser"
+    doppler secrets set POSTGRES_PW="secret"
+    ```
+
+    <Tip>
+      Alternatively, you can configure these values in `src/main/resources/application.properties` for local development, but using Doppler is recommended for production.
+    </Tip>
+  </Step>
+
+  <Step title="Build and run the application">
+    Build the project with Maven:
+
+    ```bash
+    ./mvnw clean install
+    ```
+
+    Run the application with Doppler:
+
+    ```bash
+    doppler run -- ./mvnw spring-boot:run
+    ```
+
+    Or run directly with Maven (if not using Doppler):
+
+    ```bash
+    ./mvnw spring-boot:run
+    ```
+
+    The API will start on `http://localhost:8080`.
+  </Step>
+</Steps>
+
+## Make your first API call
+
+Once the application is running, you can start making API calls.
+
+### Create a user
+
+First, create a user account for a couple:
+
+```bash
+curl -X POST http://localhost:8080/api/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "John",
+    "lastName": "Smith",
+    "email": "john.smith@example.com",
+    "password": "securepassword123"
+  }'
+```
+
+### Create an event
+
+Create a wedding event:
+
+```bash
+curl -X POST http://localhost:8080/api/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "eventName": "John & Jane Wedding",
+    "location": "Grand Hotel",
+    "date": "2024-06-15T14:00:00",
+    "password": "wedding2024"
+  }'
+```
+
+The response will include an event ID that you can use for uploading images.
+
+### Upload an image
+
+Upload a photo to an event:
+
+```bash
+curl -X POST http://localhost:8080/api/image \
+  -F "file=@/path/to/your/photo.jpg" \
+  -F "eventId=1"
+```
+
+### Get images for an event
+
+Retrieve all images for a specific event:
+
+```bash
+curl http://localhost:8080/api/events/1/images
+```
+
+## What's next?
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore all available API endpoints
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/environment">
+    Learn about configuration options
+  </Card>
+  <Card title="Docker Guide" icon="docker" href="/guides/docker">
+    Advanced Docker setup and configuration
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/guides/deployment">
+    Deploy to production environments
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Application won't start">
+    - Verify that PostgreSQL is running: `docker ps`
+    - Check that port 8080 is not already in use
+    - Ensure all environment variables are set correctly
+    - Review application logs for specific error messages
+  </Accordion>
+
+  <Accordion title="Database connection failed">
+    - Confirm PostgreSQL is running and accessible on port 5432
+    - Verify database credentials in your environment variables or `application.properties`
+    - Check that the database `mydatabase` exists
+  </Accordion>
+
+  <Accordion title="S3 upload errors">
+    - Ensure AiStore/MinIO is running on port 9000
+    - Verify the `brautcloud` bucket exists
+    - Check AWS credentials in your configuration
+    - Confirm the S3 endpoint URL is correct
+  </Accordion>
+
+  <Accordion title="Maven build errors">
+    - Ensure you're using Java 25 or later: `java -version`
+    - Clear Maven cache: `./mvnw clean`
+    - Try rebuilding: `./mvnw clean install -U`
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  For more help, check the application logs or refer to the [Installation Guide](/installation) for detailed troubleshooting steps.
 </Note>

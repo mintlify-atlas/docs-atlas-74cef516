@@ -1,0 +1,374 @@
+---
+title: 'Docker Setup Guide'
+description: 'Set up PostgreSQL and AiStore with Docker Compose for local development'
+---
+
+## Overview
+
+Brautcloud Backend uses Docker Compose to manage local development dependencies including PostgreSQL for data storage and AiStore as a local S3-compatible object storage.
+
+<Note>
+  The Spring Boot Docker Compose integration is currently disabled in this project. You must run `docker compose up` manually before starting the application.
+</Note>
+
+## Prerequisites
+
+Ensure you have the following installed:
+
+- Docker 20.10+ or Docker Desktop
+- Docker Compose V2
+
+<Tip>
+  Verify your Docker installation:
+  ```bash
+  docker --version
+  docker compose version
+  ```
+</Tip>
+
+## Docker Compose Configuration
+
+The project includes a `compose.yaml` file that defines the required services:
+
+```yaml compose.yaml
+services:
+  postgres:
+    image: 'postgres:latest'
+    environment:
+      - 'POSTGRES_DB=mydatabase'
+      - 'POSTGRES_PASSWORD=secret'
+      - 'POSTGRES_USER=myuser'
+    ports:
+      - '5432:5432'
+```
+
+### Service Details
+
+<CardGroup cols={1}>
+  <Card title="PostgreSQL" icon="database">
+    **Image:** `postgres:latest`
+    
+    **Database:** `mydatabase`
+    
+    **User:** `myuser`
+    
+    **Password:** `secret`
+    
+    **Port:** `5432`
+  </Card>
+</CardGroup>
+
+## Setting Up the Environment
+
+<Steps>
+  <Step title="Navigate to Project Directory">
+    Open your terminal and navigate to the project root:
+    
+    ```bash
+    cd brautcloud-backend
+    ```
+  </Step>
+  
+  <Step title="Start Docker Services">
+    Run Docker Compose to start PostgreSQL:
+    
+    ```bash
+    docker compose up -d
+    ```
+    
+    The `-d` flag runs containers in detached mode (background).
+  </Step>
+  
+  <Step title="Verify Services are Running">
+    Check that the PostgreSQL container is up and healthy:
+    
+    ```bash
+    docker compose ps
+    ```
+    
+    Expected output:
+    ```
+    NAME                           IMAGE             STATUS
+    brautcloud-backend-postgres-1  postgres:latest   Up
+    ```
+  </Step>
+  
+  <Step title="Set Up AiStore for Local S3">
+    AiStore provides S3-compatible object storage for local development. Pull and run the AiStore container:
+    
+    ```bash
+    docker run -d \
+      --name aistore \
+      -p 9000:9000 \
+      -e MINIO_ROOT_USER=V3fhZDVSddQKq4fUnpJx \
+      -e MINIO_ROOT_PASSWORD=vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS \
+      quay.io/minio/minio server /data
+    ```
+    
+    <Note>
+      AiStore is based on MinIO and provides a lightweight S3-compatible API for local development.
+    </Note>
+  </Step>
+  
+  <Step title="Create S3 Bucket">
+    Access the MinIO web console to create the required bucket:
+    
+    1. Open http://localhost:9000 in your browser
+    2. Login with the credentials above
+    3. Create a bucket named `brautcloud`
+    
+    Or use the MinIO client (mc):
+    
+    ```bash
+    # Install mc (MinIO client)
+    brew install minio/stable/mc  # macOS
+    # or download from https://min.io/docs/minio/linux/reference/minio-mc.html
+    
+    # Configure mc
+    mc alias set local http://localhost:9000 \
+      V3fhZDVSddQKq4fUnpJx \
+      vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS
+    
+    # Create bucket
+    mc mb local/brautcloud
+    ```
+  </Step>
+  
+  <Step title="Verify Application Configuration">
+    Ensure your `application.properties` matches the Docker service configuration:
+    
+    ```properties
+    # Database
+    spring.datasource.url=jdbc:postgresql://localhost/mydatabase
+    spring.datasource.username=myuser
+    spring.datasource.password=secret
+    
+    # S3 (AiStore)
+    aws.accessKeyId=V3fhZDVSddQKq4fUnpJx
+    aws.secretAccessKey=vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS
+    aws.s3.endpoint=http://[::1]:9000
+    aws.s3.region=us-east-1
+    aws.s3.bucket=brautcloud
+    ```
+  </Step>
+  
+  <Step title="Start the Application">
+    Now you can start the Spring Boot application:
+    
+    ```bash
+    mvn spring-boot:run
+    ```
+    
+    Or if using Doppler:
+    
+    ```bash
+    doppler run -- mvn spring-boot:run
+    ```
+  </Step>
+</Steps>
+
+## Managing Docker Services
+
+### View Logs
+
+View logs from all services:
+
+```bash
+docker compose logs -f
+```
+
+View logs from PostgreSQL only:
+
+```bash
+docker compose logs -f postgres
+```
+
+View logs from AiStore:
+
+```bash
+docker logs -f aistore
+```
+
+### Stop Services
+
+Stop all Docker Compose services:
+
+```bash
+docker compose down
+```
+
+Stop AiStore:
+
+```bash
+docker stop aistore
+```
+
+### Restart Services
+
+Restart all services:
+
+```bash
+docker compose restart
+```
+
+Restart PostgreSQL only:
+
+```bash
+docker compose restart postgres
+```
+
+### Clean Up
+
+Remove containers and volumes (this will delete all data):
+
+```bash
+docker compose down -v
+docker rm aistore
+```
+
+<Warning>
+  The `-v` flag removes volumes, which means you'll lose all database data. Use this only when you want a fresh start.
+</Warning>
+
+## Advanced Configuration
+
+### Persisting PostgreSQL Data
+
+To persist PostgreSQL data across container restarts, add a volume to your `compose.yaml`:
+
+```yaml compose.yaml
+services:
+  postgres:
+    image: 'postgres:latest'
+    environment:
+      - 'POSTGRES_DB=mydatabase'
+      - 'POSTGRES_PASSWORD=secret'
+      - 'POSTGRES_USER=myuser'
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:
+```
+
+### Persisting AiStore Data
+
+Add a volume to persist S3 object data:
+
+```bash
+docker run -d \
+  --name aistore \
+  -p 9000:9000 \
+  -v aistore-data:/data \
+  -e MINIO_ROOT_USER=V3fhZDVSddQKq4fUnpJx \
+  -e MINIO_ROOT_PASSWORD=vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS \
+  quay.io/minio/minio server /data
+```
+
+### Custom Network
+
+Create a custom Docker network for better isolation:
+
+```yaml compose.yaml
+services:
+  postgres:
+    image: 'postgres:latest'
+    environment:
+      - 'POSTGRES_DB=mydatabase'
+      - 'POSTGRES_PASSWORD=secret'
+      - 'POSTGRES_USER=myuser'
+    ports:
+      - '5432:5432'
+    networks:
+      - brautcloud-network
+
+networks:
+  brautcloud-network:
+    driver: bridge
+```
+
+Then connect AiStore to the same network:
+
+```bash
+docker network create brautcloud-network
+docker run -d \
+  --name aistore \
+  --network brautcloud-network \
+  -p 9000:9000 \
+  -e MINIO_ROOT_USER=V3fhZDVSddQKq4fUnpJx \
+  -e MINIO_ROOT_PASSWORD=vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS \
+  quay.io/minio/minio server /data
+```
+
+## Why is Spring Docker Compose Disabled?
+
+The Spring Boot Docker Compose support (available via `spring-boot-docker-compose` dependency) is commented out in the `pom.xml`:
+
+```xml pom.xml
+<!--
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-docker-compose</artifactId>
+  <scope>runtime</scope>
+  <optional>true</optional>
+</dependency>
+-->
+```
+
+<Tip>
+  **Why it's disabled:** This gives developers more control over when and how Docker services are started. The automatic integration can sometimes cause unexpected behavior during development.
+  
+  **To enable it:** Uncomment the dependency and Spring Boot will automatically start Docker Compose services when the application starts.
+</Tip>
+
+## Troubleshooting
+
+### PostgreSQL Connection Refused
+
+If you see connection refused errors:
+
+1. Check if PostgreSQL is running: `docker compose ps`
+2. Verify the port isn't already in use: `lsof -i :5432`
+3. Check the logs: `docker compose logs postgres`
+
+### AiStore Connection Issues
+
+1. Verify AiStore is running: `docker ps | grep aistore`
+2. Check if port 9000 is accessible: `curl http://localhost:9000/minio/health/live`
+3. Verify credentials match between application.properties and Docker container
+
+### Port Already in Use
+
+If port 5432 or 9000 is already in use, you can map to different ports:
+
+```yaml For PostgreSQL
+ports:
+  - '5433:5432'  # Map to port 5433 on host
+```
+
+Then update your `application.properties`:
+
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5433/mydatabase
+```
+
+### Database Not Initialized
+
+If tables aren't created automatically:
+
+1. Check `spring.sql.init.mode=always` is set in `application.properties`
+2. Verify your entity classes are properly annotated with JPA annotations
+3. Check application logs for schema creation errors
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Deployment Guide" icon="rocket" href="/guides/deployment">
+    Learn how to deploy the application to production
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/environment">
+    Explore all configuration options
+  </Card>
+</CardGroup>

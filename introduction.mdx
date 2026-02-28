@@ -1,0 +1,128 @@
+---
+title: Introduction to Brautcloud Backend
+description: A Spring Boot backend service for wedding photo sharing, enabling guests to upload and share photos with the bride and groom
+---
+
+# Welcome to Brautcloud Backend
+
+Brautcloud Backend is a powerful, scalable service designed for wedding celebrations, allowing guests to easily share photos they capture during the event with the happy couple. Built with modern Java technologies, it provides a robust REST API for managing wedding events, users, and image uploads.
+
+<Note>
+  Brautcloud is currently in early development. Features and APIs may evolve as the project matures.
+</Note>
+
+## What is Brautcloud?
+
+Brautcloud provides a backend infrastructure where wedding guests can:
+- Upload photos they took at the wedding
+- Share their captured moments with the bride and groom
+- Access event-specific photo galleries
+- Securely manage wedding event data
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Event Management" icon="calendar">
+    Create and manage wedding events with details like location, date, and secure access via passwords and QR codes.
+  </Card>
+  
+  <Card title="Image Upload & Storage" icon="images">
+    Upload photos with S3-compatible storage (AiStore), supporting files up to 10MB with automatic organization by event.
+  </Card>
+  
+  <Card title="User Management" icon="users">
+    Register couples and manage user accounts for event owners with secure authentication.
+  </Card>
+  
+  <Card title="PostgreSQL Persistence" icon="database">
+    Reliable data storage using PostgreSQL with JPA/Hibernate for seamless database operations.
+  </Card>
+  
+  <Card title="Spring Boot REST API" icon="bolt">
+    RESTful endpoints built on Spring Boot 4.0.2 with Java 25, providing robust and modern API architecture.
+  </Card>
+  
+  <Card title="Docker Compose Setup" icon="docker">
+    Quick development environment setup with Docker Compose for PostgreSQL and S3-compatible storage.
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+Brautcloud Backend is built with:
+
+- **Java 25** - Latest Java features and performance improvements
+- **Spring Boot 4.0.2** - Modern Spring framework for rapid development
+- **PostgreSQL** - Robust relational database
+- **AWS SDK for Java** - S3-compatible storage integration with AiStore
+- **Maven** - Dependency management and build automation
+- **Lombok** - Reduced boilerplate code
+- **Docker Compose** - Containerized development environment
+- **Doppler** - Secure environment variable management
+
+## API Overview
+
+The Brautcloud Backend exposes three main REST API endpoints:
+
+### Events API
+
+```
+GET    /api/events          - List all events
+POST   /api/events          - Create a new event
+DELETE /api/events/{eventID} - Delete an event
+```
+
+### Images API
+
+```
+POST   /api/image           - Upload an image
+GET    /api/image/{eventID} - Get all images for an event
+DELETE /api/image/{imageID} - Delete an image
+```
+
+### Users API
+
+```
+GET    /api/users - List all users
+POST   /api/users - Create a new user
+```
+
+## Get Started
+
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get up and running in minutes with our quick start guide
+  </Card>
+  
+  <Card title="Installation" icon="download" href="/installation">
+    Detailed installation instructions and prerequisites
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Complete API documentation and examples
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+- **Wedding Photography**: Allow guests to upload photos directly to a centralized location
+- **Event Photo Sharing**: Create private photo galleries for wedding events
+- **Couple Photo Collections**: Organize and manage photos by event with secure access
+- **Real-time Photo Uploads**: Enable guests to share moments as they happen
+
+## Project Status
+
+Brautcloud Backend is actively developed and currently in early-stage development. The core features are functional, with ongoing improvements planned for:
+
+- Enhanced security features (Spring Security integration)
+- Advanced authentication mechanisms
+- Photo processing and optimization
+- Extended event management capabilities
+
+<Warning>
+  The Docker Compose Spring integration is currently disabled. You'll need to run `docker compose up` manually and ensure an AiStore container is running for S3-compatible storage.
+</Warning>
+
+## Next Steps
+
+Ready to start building with Brautcloud Backend? Continue to the [Quickstart Guide](/quickstart) to get your development environment set up in minutes.

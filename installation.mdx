@@ -1,0 +1,525 @@
+---
+title: Installation Guide
+description: Comprehensive installation instructions for setting up Brautcloud Backend with all prerequisites and dependencies
+---
+
+# Installation Guide
+
+This guide provides detailed instructions for installing and configuring Brautcloud Backend on your development machine.
+
+## Prerequisites
+
+Before installing Brautcloud Backend, ensure you have the following tools and technologies installed:
+
+### Required Software
+
+<Steps>
+  <Step title="Java 25">
+    Brautcloud requires Java 25 to run. Download and install from [Oracle's website](https://www.oracle.com/java/technologies/downloads/) or use a package manager.
+    
+    **macOS (Homebrew)**:
+    ```bash
+    brew install openjdk@25
+    ```
+    
+    **Verify installation**:
+    ```bash
+    java -version
+    ```
+    
+    You should see output indicating Java version 25.
+  </Step>
+  
+  <Step title="Maven 3.6+">
+    Maven is used for dependency management and building the project.
+    
+    **macOS (Homebrew)**:
+    ```bash
+    brew install maven
+    ```
+    
+    **Linux (Ubuntu/Debian)**:
+    ```bash
+    sudo apt update
+    sudo apt install maven
+    ```
+    
+    **Verify installation**:
+    ```bash
+    mvn -version
+    ```
+  </Step>
+  
+  <Step title="Docker and Docker Compose">
+    Docker is required to run PostgreSQL and AiStore containers.
+    
+    **macOS/Windows**: Download [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+    
+    **Linux**: Follow the [official Docker installation guide](https://docs.docker.com/engine/install/)
+    
+    **Verify installation**:
+    ```bash
+    docker --version
+    docker compose version
+    ```
+  </Step>
+  
+  <Step title="Doppler CLI">
+    Doppler is used for secure environment variable management.
+    
+    **macOS (Homebrew)**:
+    ```bash
+    brew install dopplerhq/cli/doppler
+    ```
+    
+    **Linux**:
+    ```bash
+    curl -Ls https://cli.doppler.com/install.sh | sh
+    ```
+    
+    **Windows**: See [Doppler installation docs](https://docs.doppler.com/docs/install-cli)
+    
+    **Verify installation**:
+    ```bash
+    doppler --version
+    ```
+    
+    **Login to Doppler**:
+    ```bash
+    doppler login
+    ```
+  </Step>
+  
+  <Step title="Git">
+    Git is needed to clone the repository.
+    
+    **macOS (Homebrew)**:
+    ```bash
+    brew install git
+    ```
+    
+    **Linux (Ubuntu/Debian)**:
+    ```bash
+    sudo apt update
+    sudo apt install git
+    ```
+    
+    **Verify installation**:
+    ```bash
+    git --version
+    ```
+  </Step>
+</Steps>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the Brautcloud Backend repository from GitHub:
+    
+    ```bash
+    git clone https://github.com/domenicwalther/brautcloud-backend.git
+    cd brautcloud-backend
+    ```
+    
+    This downloads the complete source code and project structure to your local machine.
+  </Step>
+  
+  <Step title="Set Up Docker Infrastructure">
+    Brautcloud uses Docker Compose to manage PostgreSQL and requires a separate AiStore container for S3-compatible storage.
+    
+    ### Start PostgreSQL
+    
+    The included `compose.yaml` file defines a PostgreSQL service with default credentials:
+    
+    ```yaml
+    services:
+      postgres:
+        image: 'postgres:latest'
+        environment:
+          - 'POSTGRES_DB=mydatabase'
+          - 'POSTGRES_PASSWORD=secret'
+          - 'POSTGRES_USER=myuser'
+        ports:
+          - '5432:5432'
+    ```
+    
+    Start the PostgreSQL container:
+    
+    ```bash
+    docker compose up -d
+    ```
+    
+    <Warning>
+      The Docker Compose Spring integration is currently disabled in this project. You must manually run `docker compose up` before starting the application.
+    </Warning>
+    
+    ### Set Up AiStore (S3-Compatible Storage)
+    
+    You need to run an AiStore container separately for image storage. Follow these steps:
+    
+    ```bash
+    # Pull the AiStore image
+    docker pull aistore/aisnode
+    
+    # Run AiStore (example - adjust as needed)
+    docker run -d -p 9000:9000 \
+      --name aistore \
+      aistore/aisnode
+    ```
+    
+    <Note>
+      The default S3 endpoint is configured as `http://[::1]:9000`. Ensure your AiStore instance is accessible at this address.
+    </Note>
+    
+    ### Verify Containers Are Running
+    
+    ```bash
+    docker compose ps
+    docker ps | grep aistore
+    ```
+  </Step>
+  
+  <Step title="Configure Environment Variables">
+    Brautcloud uses Doppler for secure environment variable management.
+    
+    ### Set Up Doppler Project
+    
+    ```bash
+    # Create or select a Doppler project
+    doppler setup
+    ```
+    
+    ### Configure Required Variables
+    
+    Add these environment variables to your Doppler project:
+    
+    | Variable | Description | Default/Example Value |
+    |----------|-------------|----------------------|
+    | `AWS_ACCESS_KEY_ID` | Access key for local S3 (AiStore) | `V3fhZDVSddQKq4fUnpJx` |
+    | `AWS_SECRET_ACCESS_KEY` | Secret key for local S3 | `vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS` |
+    | `AWS_ENDPOINT` | S3 endpoint URL | `http://[::1]:9000` |
+    | `POSTGRES_URL` | PostgreSQL connection URL | `jdbc:postgresql://localhost/mydatabase` |
+    | `POSTGRES_USER` | Database username | `myuser` |
+    | `POSTGRES_PW` | Database password | `secret` |
+    
+    **Add variables using Doppler CLI**:
+    
+    ```bash
+    doppler secrets set AWS_ACCESS_KEY_ID="V3fhZDVSddQKq4fUnpJx"
+    doppler secrets set AWS_SECRET_ACCESS_KEY="vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS"
+    doppler secrets set AWS_ENDPOINT="http://[::1]:9000"
+    doppler secrets set POSTGRES_URL="jdbc:postgresql://localhost/mydatabase"
+    doppler secrets set POSTGRES_USER="myuser"
+    doppler secrets set POSTGRES_PW="secret"
+    ```
+    
+    <Tip>
+      Alternatively, you can configure these variables through the [Doppler web dashboard](https://dashboard.doppler.com/).
+    </Tip>
+    
+    ### Local Development Configuration
+    
+    For local development, default values are also provided in `application.properties`:
+    
+    ```properties
+    spring.datasource.password=secret
+    spring.datasource.username=myuser
+    spring.datasource.url=jdbc:postgresql://localhost/mydatabase
+    
+    aws.accessKeyId=V3fhZDVSddQKq4fUnpJx
+    aws.secretAccessKey=vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS
+    aws.s3.endpoint=http://[::1]:9000
+    aws.s3.region=us-east-1
+    aws.s3.bucket=brautcloud
+    ```
+  </Step>
+  
+  <Step title="Build the Project">
+    Build the project using Maven to download all dependencies:
+    
+    ```bash
+    mvn clean install
+    ```
+    
+    This command:
+    - Cleans previous build artifacts
+    - Downloads all Maven dependencies defined in `pom.xml`
+    - Compiles the Java source code
+    - Runs tests
+    - Packages the application
+    
+    <Note>
+      The first build may take several minutes as Maven downloads all required dependencies.
+    </Note>
+  </Step>
+  
+  <Step title="Start the Application">
+    Run the Spring Boot application using Doppler:
+    
+    ```bash
+    doppler run -- mvn spring-boot:run
+    ```
+    
+    Alternatively, you can use the Spring Boot Maven plugin directly if not using Doppler:
+    
+    ```bash
+    mvn spring-boot:run
+    ```
+    
+    ### Using IntelliJ IDEA
+    
+    The project includes a `Spring_Run.run.xml` configuration file that automatically integrates Doppler with Spring Boot. Simply open the project in IntelliJ IDEA and run the configuration.
+    
+    ### Expected Output
+    
+    You should see Spring Boot startup logs indicating:
+    - Database connection established
+    - JPA entities initialized
+    - REST controllers mapped
+    - Application started on port 8080 (default)
+    
+    Look for a line similar to:
+    ```
+    Started BrautcloudApplication in X.XXX seconds
+    ```
+  </Step>
+</Steps>
+
+## Verifying the Installation
+
+<Steps>
+  <Step title="Check Application Health">
+    Verify the application is running using the Spring Boot Actuator health endpoint:
+    
+    ```bash
+    curl http://localhost:8080/actuator/health
+    ```
+    
+    **Expected response**:
+    ```json
+    {
+      "status": "UP"
+    }
+    ```
+  </Step>
+  
+  <Step title="Test Database Connection">
+    Create a test user to verify database connectivity:
+    
+    ```bash
+    curl -X POST http://localhost:8080/api/users \
+      -H "Content-Type: application/json" \
+      -d '{"name": "Test User", "email": "test@example.com"}'
+    ```
+    
+    List users to confirm:
+    ```bash
+    curl http://localhost:8080/api/users
+    ```
+  </Step>
+  
+  <Step title="Test S3 Storage">
+    Create an event and upload a test image to verify S3/AiStore connectivity:
+    
+    ```bash
+    # Create event
+    curl -X POST http://localhost:8080/api/events \
+      -H "Content-Type: application/json" \
+      -d '{"userId": 1, "eventName": "Test Event", "location": "Test Location", "date": "2026-12-31T23:59:59", "password": "test123", "qrCode": "TEST001"}'
+    
+    # Upload image (replace with actual image path)
+    curl -X POST http://localhost:8080/api/image \
+      -F "file=@/path/to/test-image.jpg" \
+      -F "eventId=1"
+    ```
+    
+    If successful, you'll receive a confirmation response.
+  </Step>
+</Steps>
+
+## Configuration Options
+
+### Application Properties
+
+You can customize the application by modifying `src/main/resources/application.properties`:
+
+```properties
+# Application name
+spring.application.name=brautcloud
+
+# Database initialization
+spring.sql.init.mode=always
+
+# Database configuration
+spring.datasource.password=secret
+spring.datasource.username=myuser
+spring.datasource.url=jdbc:postgresql://localhost/mydatabase
+
+# File upload limits
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
+
+# AWS S3 configuration
+aws.accessKeyId=V3fhZDVSddQKq4fUnpJx
+aws.secretAccessKey=vyTyf9fu8INFO9uyq28Wlwrkz5iknprTHOqw6AtS
+aws.s3.endpoint=http://[::1]:9000
+aws.s3.region=us-east-1
+aws.s3.bucket=brautcloud
+```
+
+### Adjusting File Upload Size
+
+To allow larger file uploads, modify the multipart properties:
+
+```properties
+spring.servlet.multipart.max-file-size=50MB
+spring.servlet.multipart.max-request-size=50MB
+```
+
+### Changing Server Port
+
+To run on a different port:
+
+```properties
+server.port=8081
+```
+
+## Troubleshooting
+
+### Java Version Issues
+
+**Error**: "Unsupported class file major version"
+
+**Solution**: Ensure you're using Java 25. Check your version:
+```bash
+java -version
+```
+
+Set `JAVA_HOME` if needed:
+```bash
+export JAVA_HOME=$(/usr/libexec/java_home -v 25)
+```
+
+### Database Connection Failures
+
+**Error**: "Connection refused" or "Unknown database"
+
+**Solutions**:
+1. Ensure PostgreSQL container is running:
+   ```bash
+   docker compose ps
+   ```
+
+2. Check container logs:
+   ```bash
+   docker compose logs postgres
+   ```
+
+3. Verify database credentials match between `compose.yaml` and your configuration
+
+4. Test direct connection:
+   ```bash
+   docker exec -it brautcloud-backend-postgres-1 psql -U myuser -d mydatabase
+   ```
+
+### S3/AiStore Connection Issues
+
+**Error**: "Unable to connect to S3 endpoint"
+
+**Solutions**:
+1. Verify AiStore container is running:
+   ```bash
+   docker ps | grep aistore
+   ```
+
+2. Check the endpoint URL format - IPv6 addresses use `[::1]` notation
+
+3. Test endpoint accessibility:
+   ```bash
+   curl http://[::1]:9000
+   ```
+
+4. Ensure bucket exists or application has permissions to create it
+
+### Maven Build Failures
+
+**Error**: Compilation failures or dependency issues
+
+**Solutions**:
+1. Clean Maven cache:
+   ```bash
+   mvn clean
+   rm -rf ~/.m2/repository
+   ```
+
+2. Rebuild with verbose output:
+   ```bash
+   mvn clean install -X
+   ```
+
+3. Ensure internet connectivity for dependency downloads
+
+### Port Already in Use
+
+**Error**: "Port 8080 is already in use"
+
+**Solution**: Either stop the conflicting process or change the server port in `application.properties`:
+```properties
+server.port=8081
+```
+
+### Doppler Issues
+
+**Error**: "Invalid token" or authentication failures
+
+**Solutions**:
+1. Re-authenticate:
+   ```bash
+   doppler logout
+   doppler login
+   ```
+
+2. Verify project setup:
+   ```bash
+   doppler setup
+   ```
+
+3. Check configured secrets:
+   ```bash
+   doppler secrets
+   ```
+
+## Project Dependencies
+
+Brautcloud Backend uses the following key dependencies (from `pom.xml`):
+
+- **Spring Boot 4.0.2** - Core framework
+- **Spring Boot Starter Web** - REST API support
+- **Spring Boot Starter Data JPA** - Database persistence
+- **Spring Boot Starter Validation** - Input validation
+- **Spring Boot Starter Actuator** - Health checks and monitoring
+- **PostgreSQL Driver** - Database connectivity
+- **AWS SDK for Java (S3)** - S3-compatible storage
+- **Lombok** - Code generation for boilerplate reduction
+- **Testcontainers** - Integration testing with containers
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Jump into the quickstart to make your first API calls
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore the complete API documentation
+  </Card>
+</CardGroup>
+
+## Additional Resources
+
+- [Spring Boot Documentation](https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/)
+- [AWS SDK for Java Documentation](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/home.html)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Doppler CLI Documentation](https://docs.doppler.com/docs/install-cli)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
