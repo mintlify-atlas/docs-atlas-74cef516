@@ -1,0 +1,78 @@
+{
+  "projectType": "api-service",
+  "projectName": "Brautcloud Backend",
+  "projectDescription": "REST API backend for wedding photo-sharing service with event management and S3 storage",
+  "theme": "aspen",
+  "primaryColor": "#d946a6",
+  "lightColor": "#f5d0fe",
+  "darkColor": "#86198f",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/environment",
+              "configuration/database",
+              "configuration/storage"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/deployment",
+              "guides/docker"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/events",
+              "api/images",
+              "api/users"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Event management API for wedding events",
+    "Multi-part image upload with S3 storage",
+    "User management for couples",
+    "PostgreSQL data persistence",
+    "REST API with Spring Boot",
+    "Docker Compose setup"
+  ],
+  "publicApiSurface": [
+    "GET /api/events - List all events",
+    "POST /api/events - Create new event",
+    "DELETE /api/events/{eventID} - Delete event",
+    "GET /api/image/{eventID} - Get images for event",
+    "POST /api/image - Upload image",
+    "DELETE /api/image/{imageID} - Delete image",
+    "GET /api/users - List all users",
+    "POST /api/users - Create new user"
+  ]
+}
